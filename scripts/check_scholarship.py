@@ -33,8 +33,16 @@ MAX_ITEMS_KEPT = 200
 NEW_BADGE_HOURS = 48
 MIN_TITLE_LEN = 4
 MAX_STRUCTURED_ROWS = 80
+PAGES_PER_RUN = 3
+PAGE_QUERY_PARAM = "page"
 DATE_RE = re.compile(r"(20\d{2})[.\-/년]\s?(\d{1,2})[.\-/월]\s?(\d{1,2})")
 SKIP_TITLES = {"다음", "이전", "처음", "마지막", "목록", "검색", "more", "list"}
+
+# Notices on this board are themselves prefixed with a bracketed category,
+# e.g. "[국가근로] ..." or "[교외-9/22] ...". Pulling that out lets the
+# rendered list use the board's own taxonomy as a tag instead of an
+# invented one.
+CATEGORY_RE = re.compile(r"^\[([^\]]{1,12})\]\s*")
 
 # korea.ac.kr renders this board with a "portalBoard" widget: every title
 # anchor shares the same dummy href="#1" and real navigation happens via
@@ -59,12 +67,42 @@ CONTAINER_SELECTORS = [
 ]
 
 
-def fetch_html(url: str) -> str:
-    resp = requests.get(url, headers=HEADERS, timeout=30)
+def fetch_html(url: str, page: int | None = None) -> str:
+    params = {PAGE_QUERY_PARAM: page} if page and page > 1 else None
+    resp = requests.get(url, headers=HEADERS, params=params, timeout=30)
     resp.raise_for_status()
     if resp.encoding is None or resp.encoding.lower() == "iso-8859-1":
         resp.encoding = resp.apparent_encoding
     return resp.text
+
+
+def fetch_additional_pages(base_url: str, already_seen_ids: set[str]) -> list[dict]:
+    """Fetch a few more board pages beyond page 1 so a run doesn't miss
+    notices when more than one page's worth appear between checks.
+
+    Best-effort: if the site doesn't honor ?page=N the way expected (e.g.
+    it needs the widget's POST-based paging instead), the extra request(s)
+    just return page 1's content again, which nets zero new ids and stops
+    the loop immediately - so this degrades safely either way.
+    """
+    collected: list[dict] = []
+    seen = set(already_seen_ids)
+    for page in range(2, PAGES_PER_RUN + 1):
+        try:
+            page_html = fetch_html(base_url, page=page)
+        except requests.RequestException as exc:
+            print(f"[warn] page {page} fetch failed, stopping pagination: {exc}")
+            break
+        page_items = extract_portal_board_rows(BeautifulSoup(page_html, "lxml"))
+        if not page_items:
+            break
+        new_on_page = [it for it in page_items if it["id"] not in seen]
+        if not new_on_page:
+            break
+        for it in new_on_page:
+            seen.add(it["id"])
+            collected.append(it)
+    return collected
 
 
 def extract_date(text: str) -> str | None:
@@ -105,13 +143,13 @@ def rows_to_items(rows, base_url: str):
     return out
 
 
-def parse_korea_portal_board(soup: BeautifulSoup):
-    """Parser tailored to korea.ac.kr's portalBoard widget (table.board-table).
+def extract_portal_board_rows(soup: BeautifulSoup) -> list[dict] | None:
+    """Row extraction for korea.ac.kr's portalBoard widget (table.board-table).
 
     Each row's real identity is the onclick articleId, not the href (see
-    ONCLICK_ARTICLE_ID_RE above). Returns a list of dicts with a stable
-    "id" plus title/date/board-number, or None if this specific markup
-    isn't present so the caller can fall back to a more generic parser.
+    ONCLICK_ARTICLE_ID_RE above). Returns a list (possibly empty, e.g. past
+    the last page) of dicts with a stable "id" plus title/date/board-number,
+    or None if this page has no such table at all.
     """
     table = soup.select_one("table.board-table")
     if table is None:
@@ -156,7 +194,17 @@ def parse_korea_portal_board(soup: BeautifulSoup):
             }
         )
 
-    if 3 <= len(items) <= MAX_STRUCTURED_ROWS:
+    return items
+
+
+def parse_korea_portal_board(soup: BeautifulSoup):
+    """Wraps extract_portal_board_rows with a sanity gate on row count, used
+    to decide whether this page even looks like the expected notice board
+    (see parse_structured). Not used for paging past page 1 - there a low
+    or zero row count is an expected end-of-list signal, not a parse failure.
+    """
+    items = extract_portal_board_rows(soup)
+    if items is not None and 3 <= len(items) <= MAX_STRUCTURED_ROWS:
         return items
     return None
 
@@ -231,8 +279,17 @@ def save_state(state: dict) -> None:
     DATA_FILE.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def split_category(title: str) -> tuple[str | None, str]:
+    """Split a leading "[카테고리]" tag off a title, if the board put one there."""
+    m = CATEGORY_RE.match(title)
+    if not m:
+        return None, title
+    rest = title[m.end():].strip()
+    return m.group(1), (rest or title)
+
+
 def render_index(items: list[dict], mode: str, last_checked: str) -> str:
-    def badge(item):
+    def new_badge(item):
         if not item.get("is_new"):
             return ""
         try:
@@ -240,19 +297,20 @@ def render_index(items: list[dict], mode: str, last_checked: str) -> str:
         except ValueError:
             return ""
         age_h = (datetime.now(timezone.utc) - seen_dt).total_seconds() / 3600
-        return ' <span class="new">NEW</span>' if age_h <= NEW_BADGE_HOURS else ""
+        return '<span class="new">NEW</span>' if age_h <= NEW_BADGE_HOURS else ""
 
-    def meta_line(it):
-        parts = [p for p in (it.get("posted_date"), f"게시글 번호 {it['board_no']}" if it.get("board_no") else None) if p]
-        parts.append(f"감지일 {it['first_seen'][:10]}")
-        return " · ".join(escape(p) for p in parts)
+    def render_entry(it):
+        category, display_title = split_category(it["title"])
+        no_html = f'<span class="no">No.{escape(it["board_no"])}</span>' if it.get("board_no") else ""
+        tag_html = f'<span class="tag">{escape(category)}</span>' if category else ""
+        date_html = f'<span>{escape(it["posted_date"])}</span>' if it.get("posted_date") else ""
+        return f"""<li class="entry">
+  <div class="entry-top">{no_html}{tag_html}{new_badge(it)}</div>
+  <a class="title" href="{escape(it.get("href") or SOURCE_URL)}" target="_blank" rel="noopener">{escape(display_title)}</a>
+  <div class="entry-bottom">{date_html}<span class="seen">감지 {escape(it["first_seen"][:10])}</span></div>
+</li>"""
 
-    rows = "\n".join(
-        f'<li class="item"><a href="{escape(it.get("href") or SOURCE_URL)}" target="_blank" '
-        f'rel="noopener">{escape(it["title"])}</a>{badge(it)}'
-        f'<div class="meta">{meta_line(it)}</div></li>'
-        for it in items
-    )
+    rows = "\n".join(render_entry(it) for it in items)
     mode_note = (
         ""
         if mode == "structured"
@@ -262,6 +320,8 @@ def render_index(items: list[dict], mode: str, last_checked: str) -> str:
             "점검해주세요.</p>"
         )
     )
+    count_label = f"{len(items)}건 추적 중" if items else "아직 추적 중인 공지가 없습니다"
+    body = f"<ul class=\"ledger\">{rows}</ul>" if items else '<p class="empty">첫 확인을 기다리는 중입니다.</p>'
     return f"""<!doctype html>
 <html lang="ko">
 <head>
@@ -269,36 +329,179 @@ def render_index(items: list[dict], mode: str, last_checked: str) -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{SOURCE_NAME} 알리미</title>
 <link rel="alternate" type="application/rss+xml" title="{SOURCE_NAME}" href="feed.xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@700;900&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-  :root {{ color-scheme: light dark; }}
-  body {{ font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-    max-width: 720px; margin: 0 auto; padding: 24px 16px; line-height: 1.5; }}
-  h1 {{ font-size: 1.3rem; }}
-  h1 a {{ color: inherit; }}
-  .sub {{ color: #666; font-size: .85rem; margin-bottom: 24px; }}
-  ul {{ list-style: none; padding: 0; }}
-  .item {{ padding: 14px 0; border-bottom: 1px solid #e5e5e5; }}
-  .item a {{ font-weight: 600; text-decoration: none; }}
-  .item a:hover {{ text-decoration: underline; }}
-  .meta {{ font-size: .8rem; color: #888; margin-top: 4px; }}
-  .new {{ background: #d6294c; color: #fff; font-size: .65rem; padding: 2px 6px;
-    border-radius: 999px; margin-left: 6px; vertical-align: middle; }}
-  .warn {{ background: #fff3cd; color: #6b5200; padding: 10px 12px; border-radius: 8px;
-    font-size: .85rem; }}
-  footer {{ margin-top: 32px; font-size: .75rem; color: #999; }}
-  footer a {{ color: inherit; }}
+  :root {{
+    --crimson: #8b0029;
+    --crimson-deep: #5c0016;
+    --ivory: #d6cabc;
+    --ivory-deep: #b7a68e;
+    --paper: #fbf8f4;
+    --ink: #241d17;
+    --ink-soft: #7d7266;
+    --line: #e6dfd4;
+    color-scheme: light;
+  }}
+  * {{ box-sizing: border-box; }}
+  @media (prefers-reduced-motion: reduce) {{ * {{ transition: none !important; }} }}
+  body {{
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Noto Sans KR", -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    line-height: 1.6;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }}
+  .top-bar {{ height: 6px; background: var(--crimson); }}
+  header {{ max-width: 640px; margin: 0 auto; padding: 40px 24px 26px; }}
+  .eyebrow {{
+    margin: 0 0 12px;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .16em;
+    color: var(--crimson-deep);
+    text-transform: uppercase;
+  }}
+  h1 {{
+    margin: 0 0 12px;
+    font-family: "Noto Serif KR", Georgia, serif;
+    font-weight: 900;
+    font-size: 2rem;
+    text-wrap: balance;
+  }}
+  .desc {{ margin: 0 0 18px; max-width: 480px; font-size: .93rem; color: var(--ink-soft); }}
+  .quicklinks {{ margin: 0; font-size: .86rem; }}
+  .quicklinks a {{
+    color: var(--crimson-deep);
+    font-weight: 700;
+    text-decoration: none;
+    border-bottom: 1px solid var(--ivory-deep);
+    padding-bottom: 1px;
+  }}
+  .quicklinks a:hover {{ border-color: var(--crimson); }}
+  .quicklinks .sep {{ margin: 0 10px; color: var(--ivory-deep); }}
+  main {{ max-width: 640px; margin: 0 auto; padding: 0 24px 40px; }}
+  .status {{
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: .78rem;
+    color: var(--ink-soft);
+    padding-bottom: 10px;
+    margin-bottom: 4px;
+    border-bottom: 2px solid var(--ivory);
+    font-variant-numeric: tabular-nums;
+  }}
+  .status strong {{ color: var(--crimson-deep); font-weight: 800; }}
+  .warn {{
+    background: #fdf3d8;
+    border: 1px solid #eccf7a;
+    color: #6b5200;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: .85rem;
+    margin: 16px 0 0;
+  }}
+  ul.ledger {{ list-style: none; margin: 0; padding: 0; }}
+  .entry {{
+    padding: 16px 2px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }}
+  .entry:hover {{ background: linear-gradient(to right, rgba(139,0,41,.035), transparent 60%); }}
+  .entry-top {{ display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }}
+  .no {{
+    font-size: .7rem;
+    font-weight: 700;
+    color: #fff;
+    background: var(--crimson);
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-variant-numeric: tabular-nums;
+  }}
+  .tag {{
+    font-size: .7rem;
+    font-weight: 700;
+    color: var(--crimson-deep);
+    background: var(--ivory);
+    padding: 2px 9px;
+    border-radius: 4px;
+  }}
+  .new {{
+    font-size: .66rem;
+    font-weight: 800;
+    letter-spacing: .06em;
+    color: var(--crimson);
+    border: 1.5px solid var(--crimson);
+    padding: 1px 7px;
+    border-radius: 4px;
+  }}
+  .title {{
+    font-family: "Noto Serif KR", Georgia, serif;
+    font-weight: 700;
+    font-size: 1.02rem;
+    color: var(--ink);
+    text-decoration: none;
+    line-height: 1.45;
+  }}
+  .title:hover {{ color: var(--crimson-deep); text-decoration: underline; text-underline-offset: 3px; }}
+  .entry-bottom {{
+    font-size: .78rem;
+    color: var(--ink-soft);
+    display: flex;
+    gap: 10px;
+    font-variant-numeric: tabular-nums;
+  }}
+  .entry-bottom .seen::before {{ content: "· "; }}
+  .empty {{
+    text-align: center;
+    padding: 48px 16px;
+    font-family: "Noto Serif KR", Georgia, serif;
+    font-style: italic;
+    color: var(--ink-soft);
+    font-size: 1rem;
+  }}
+  footer {{
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 28px 24px 40px;
+    border-top: 1px solid var(--line);
+    font-size: .74rem;
+    color: var(--ink-soft);
+  }}
+  footer a {{ color: var(--crimson-deep); }}
 </style>
 </head>
 <body>
-<h1><a href="{SOURCE_URL}" target="_blank" rel="noopener">{SOURCE_NAME}</a> 알리미</h1>
-<p class="sub">고려대학교 장학금 공지사항 페이지를 주기적으로 확인해 새 글이 올라오면
-이 페이지와 <a href="feed.xml">RSS 피드</a>가 업데이트됩니다.</p>
-{mode_note}
-<ul>
-{rows}
-</ul>
-<footer>마지막 확인: {escape(last_checked)} (UTC) · 원본:
-<a href="{SOURCE_URL}" target="_blank" rel="noopener">korea.ac.kr</a></footer>
+<div class="top-bar"></div>
+<header>
+  <p class="eyebrow">Korea University · 학생지원팀 공지</p>
+  <h1>{SOURCE_NAME} 알리미</h1>
+  <p class="desc">장학금 공지사항 게시판을 주기적으로 확인해서 새 글이 올라오면
+  이 페이지와 RSS 피드가 자동으로 갱신됩니다.</p>
+  <p class="quicklinks">
+    <a href="feed.xml">RSS 구독</a><span class="sep">·</span><a href="{SOURCE_URL}" target="_blank" rel="noopener">원본 게시판</a>
+  </p>
+</header>
+<main>
+  <div class="status">
+    <span><strong>{escape(count_label)}</strong></span>
+    <span>마지막 확인 {escape(last_checked[:16].replace("T", " "))} UTC</span>
+  </div>
+  {mode_note}
+  {body}
+</main>
+<footer>
+  본 페이지는 공식 고려대학교 사이트가 아니며, <a href="{SOURCE_URL}" target="_blank" rel="noopener">korea.ac.kr</a>의
+  공지 게시판을 비공식으로 감시해 알려주는 도구입니다.
+</footer>
 </body>
 </html>
 """
@@ -343,6 +546,11 @@ def main() -> int:
     mode = "structured" if parsed is not None else "fallback-hash"
     if parsed is None:
         print_diagnostics(html)
+    elif PAGES_PER_RUN > 1:
+        extra = fetch_additional_pages(SOURCE_URL, {it["id"] for it in parsed})
+        if extra:
+            print(f"[info] 다음 페이지에서 {len(extra)}건을 추가로 확인했습니다.")
+        parsed = parsed + extra
 
     items_state: dict = state.get("items", {})
     new_titles: list[str] = []

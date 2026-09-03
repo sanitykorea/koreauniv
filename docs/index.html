@@ -5,44 +5,227 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>고려대학교 장학금 공지 알리미</title>
 <link rel="alternate" type="application/rss+xml" title="고려대학교 장학금 공지" href="feed.xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@700;900&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-  :root { color-scheme: light dark; }
-  body { font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-    max-width: 720px; margin: 0 auto; padding: 24px 16px; line-height: 1.5; }
-  h1 { font-size: 1.3rem; }
-  h1 a { color: inherit; }
-  .sub { color: #666; font-size: .85rem; margin-bottom: 24px; }
-  ul { list-style: none; padding: 0; }
-  .item { padding: 14px 0; border-bottom: 1px solid #e5e5e5; }
-  .item a { font-weight: 600; text-decoration: none; }
-  .item a:hover { text-decoration: underline; }
-  .meta { font-size: .8rem; color: #888; margin-top: 4px; }
-  .new { background: #d6294c; color: #fff; font-size: .65rem; padding: 2px 6px;
-    border-radius: 999px; margin-left: 6px; vertical-align: middle; }
-  .warn { background: #fff3cd; color: #6b5200; padding: 10px 12px; border-radius: 8px;
-    font-size: .85rem; }
-  footer { margin-top: 32px; font-size: .75rem; color: #999; }
-  footer a { color: inherit; }
+  :root {
+    --crimson: #8b0029;
+    --crimson-deep: #5c0016;
+    --ivory: #d6cabc;
+    --ivory-deep: #b7a68e;
+    --paper: #fbf8f4;
+    --ink: #241d17;
+    --ink-soft: #7d7266;
+    --line: #e6dfd4;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Noto Sans KR", -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    line-height: 1.6;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+  .top-bar { height: 6px; background: var(--crimson); }
+  header { max-width: 640px; margin: 0 auto; padding: 40px 24px 26px; }
+  .eyebrow {
+    margin: 0 0 12px;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .16em;
+    color: var(--crimson-deep);
+    text-transform: uppercase;
+  }
+  h1 {
+    margin: 0 0 12px;
+    font-family: "Noto Serif KR", Georgia, serif;
+    font-weight: 900;
+    font-size: 2rem;
+    text-wrap: balance;
+  }
+  .desc { margin: 0 0 18px; max-width: 480px; font-size: .93rem; color: var(--ink-soft); }
+  .quicklinks { margin: 0; font-size: .86rem; }
+  .quicklinks a {
+    color: var(--crimson-deep);
+    font-weight: 700;
+    text-decoration: none;
+    border-bottom: 1px solid var(--ivory-deep);
+    padding-bottom: 1px;
+  }
+  .quicklinks a:hover { border-color: var(--crimson); }
+  .quicklinks .sep { margin: 0 10px; color: var(--ivory-deep); }
+  main { max-width: 640px; margin: 0 auto; padding: 0 24px 40px; }
+  .status {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: .78rem;
+    color: var(--ink-soft);
+    padding-bottom: 10px;
+    margin-bottom: 4px;
+    border-bottom: 2px solid var(--ivory);
+    font-variant-numeric: tabular-nums;
+  }
+  .status strong { color: var(--crimson-deep); font-weight: 800; }
+  .warn {
+    background: #fdf3d8;
+    border: 1px solid #eccf7a;
+    color: #6b5200;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: .85rem;
+    margin: 16px 0 0;
+  }
+  ul.ledger { list-style: none; margin: 0; padding: 0; }
+  .entry {
+    padding: 16px 2px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .entry:hover { background: linear-gradient(to right, rgba(139,0,41,.035), transparent 60%); }
+  .entry-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .no {
+    font-size: .7rem;
+    font-weight: 700;
+    color: #fff;
+    background: var(--crimson);
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .tag {
+    font-size: .7rem;
+    font-weight: 700;
+    color: var(--crimson-deep);
+    background: var(--ivory);
+    padding: 2px 9px;
+    border-radius: 4px;
+  }
+  .new {
+    font-size: .66rem;
+    font-weight: 800;
+    letter-spacing: .06em;
+    color: var(--crimson);
+    border: 1.5px solid var(--crimson);
+    padding: 1px 7px;
+    border-radius: 4px;
+  }
+  .title {
+    font-family: "Noto Serif KR", Georgia, serif;
+    font-weight: 700;
+    font-size: 1.02rem;
+    color: var(--ink);
+    text-decoration: none;
+    line-height: 1.45;
+  }
+  .title:hover { color: var(--crimson-deep); text-decoration: underline; text-underline-offset: 3px; }
+  .entry-bottom {
+    font-size: .78rem;
+    color: var(--ink-soft);
+    display: flex;
+    gap: 10px;
+    font-variant-numeric: tabular-nums;
+  }
+  .entry-bottom .seen::before { content: "· "; }
+  .empty {
+    text-align: center;
+    padding: 48px 16px;
+    font-family: "Noto Serif KR", Georgia, serif;
+    font-style: italic;
+    color: var(--ink-soft);
+    font-size: 1rem;
+  }
+  footer {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 28px 24px 40px;
+    border-top: 1px solid var(--line);
+    font-size: .74rem;
+    color: var(--ink-soft);
+  }
+  footer a { color: var(--crimson-deep); }
 </style>
 </head>
 <body>
-<h1><a href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">고려대학교 장학금 공지</a> 알리미</h1>
-<p class="sub">고려대학교 장학금 공지사항 페이지를 주기적으로 확인해 새 글이 올라오면
-이 페이지와 <a href="feed.xml">RSS 피드</a>가 업데이트됩니다.</p>
-
-<ul>
-<li class="item"><a href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">[교외-9/22]2026년도 (재)포항시장학회 대학교 장학생 선발 안내(재단지원)</a><div class="meta">2026-09-03 · 게시글 번호 250 · 감지일 2026-09-03</div></li>
-<li class="item"><a href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">[기금/교외] 2026학년도 2학기 장학 추천 인재 POOL 등록 신청 안내 (학부)</a><div class="meta">2026-09-02 · 게시글 번호 257 · 감지일 2026-09-03</div></li>
-<li class="item"><a href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">[교외-9/30]2026년 국가유산진흥원 전통 기·예능 분야 및 매장유산 관련 분야 우수 장학생 선발 안내(재단지원)</a><div class="meta">2026-09-02 · 게시글 번호 249 · 감지일 2026-09-03</div></li>
-<li class="item"><a href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">[교외-9/23]2026년 상반기분 통영시 대학생 학자금 이자 지원 신청 안내(재단지원)</a><div class="meta">2026-09-02 · 게시글 번호 248 · 감지일 2026-09-03</div></li>
-<li class="item"><a href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">[국가근로] 2026학년도 2학기 국가근로장학 희망근로지 신청(2차) 및 신청방법 변경 안내 (서울캠퍼스)</a><div class="meta">2026-08-28 · 게시글 번호 256 · 감지일 2026-09-03</div></li>
-<li class="item"><a href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">[국가근로] 2026학년도 2학기 국가근로 선발결과 조회 방법 및 사전교육자료 안내</a><div class="meta">2026-08-28 · 게시글 번호 255 · 감지일 2026-09-03</div></li>
-<li class="item"><a href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">[국가근로] 2026학년도 근로중지 자진신고 및 부정근로 예방 자료 안내 (부정근로시 참여제한)</a><div class="meta">2026-08-06 · 게시글 번호 254 · 감지일 2026-09-03</div></li>
-<li class="item"><a href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">[교외] 외부장학재단 장학생 지원시 총장 추천서 직인 요청방법 안내</a><div class="meta">2026-07-13 · 게시글 번호 253 · 감지일 2026-09-03</div></li>
-<li class="item"><a href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">[공통] 장학금 포기 신청서 (양식)</a><div class="meta">2026-04-08 · 게시글 번호 252 · 감지일 2026-09-03</div></li>
-<li class="item"><a href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">[장학일정] 2026학년도 장학금 일정 안내(학부)</a><div class="meta">2025-12-03 · 게시글 번호 251 · 감지일 2026-09-03</div></li>
-</ul>
-<footer>마지막 확인: 2026-09-03T03:22:12+00:00 (UTC) · 원본:
-<a href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">korea.ac.kr</a></footer>
+<div class="top-bar"></div>
+<header>
+  <p class="eyebrow">Korea University · 학생지원팀 공지</p>
+  <h1>고려대학교 장학금 공지 알리미</h1>
+  <p class="desc">장학금 공지사항 게시판을 주기적으로 확인해서 새 글이 올라오면
+  이 페이지와 RSS 피드가 자동으로 갱신됩니다.</p>
+  <p class="quicklinks">
+    <a href="feed.xml">RSS 구독</a><span class="sep">·</span><a href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">원본 게시판</a>
+  </p>
+</header>
+<main>
+  <div class="status">
+    <span><strong>10건 추적 중</strong></span>
+    <span>마지막 확인 2026-09-03 03:22 UTC</span>
+  </div>
+  
+  <ul class="ledger"><li class="entry">
+  <div class="entry-top"><span class="no">No.250</span><span class="tag">교외-9/22</span></div>
+  <a class="title" href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">2026년도 (재)포항시장학회 대학교 장학생 선발 안내(재단지원)</a>
+  <div class="entry-bottom"><span>2026-09-03</span><span class="seen">감지 2026-09-03</span></div>
+</li>
+<li class="entry">
+  <div class="entry-top"><span class="no">No.257</span><span class="tag">기금/교외</span></div>
+  <a class="title" href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">2026학년도 2학기 장학 추천 인재 POOL 등록 신청 안내 (학부)</a>
+  <div class="entry-bottom"><span>2026-09-02</span><span class="seen">감지 2026-09-03</span></div>
+</li>
+<li class="entry">
+  <div class="entry-top"><span class="no">No.249</span><span class="tag">교외-9/30</span></div>
+  <a class="title" href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">2026년 국가유산진흥원 전통 기·예능 분야 및 매장유산 관련 분야 우수 장학생 선발 안내(재단지원)</a>
+  <div class="entry-bottom"><span>2026-09-02</span><span class="seen">감지 2026-09-03</span></div>
+</li>
+<li class="entry">
+  <div class="entry-top"><span class="no">No.248</span><span class="tag">교외-9/23</span></div>
+  <a class="title" href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">2026년 상반기분 통영시 대학생 학자금 이자 지원 신청 안내(재단지원)</a>
+  <div class="entry-bottom"><span>2026-09-02</span><span class="seen">감지 2026-09-03</span></div>
+</li>
+<li class="entry">
+  <div class="entry-top"><span class="no">No.256</span><span class="tag">국가근로</span></div>
+  <a class="title" href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">2026학년도 2학기 국가근로장학 희망근로지 신청(2차) 및 신청방법 변경 안내 (서울캠퍼스)</a>
+  <div class="entry-bottom"><span>2026-08-28</span><span class="seen">감지 2026-09-03</span></div>
+</li>
+<li class="entry">
+  <div class="entry-top"><span class="no">No.255</span><span class="tag">국가근로</span></div>
+  <a class="title" href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">2026학년도 2학기 국가근로 선발결과 조회 방법 및 사전교육자료 안내</a>
+  <div class="entry-bottom"><span>2026-08-28</span><span class="seen">감지 2026-09-03</span></div>
+</li>
+<li class="entry">
+  <div class="entry-top"><span class="no">No.254</span><span class="tag">국가근로</span></div>
+  <a class="title" href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">2026학년도 근로중지 자진신고 및 부정근로 예방 자료 안내 (부정근로시 참여제한)</a>
+  <div class="entry-bottom"><span>2026-08-06</span><span class="seen">감지 2026-09-03</span></div>
+</li>
+<li class="entry">
+  <div class="entry-top"><span class="no">No.253</span><span class="tag">교외</span></div>
+  <a class="title" href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">외부장학재단 장학생 지원시 총장 추천서 직인 요청방법 안내</a>
+  <div class="entry-bottom"><span>2026-07-13</span><span class="seen">감지 2026-09-03</span></div>
+</li>
+<li class="entry">
+  <div class="entry-top"><span class="no">No.252</span><span class="tag">공통</span></div>
+  <a class="title" href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">장학금 포기 신청서 (양식)</a>
+  <div class="entry-bottom"><span>2026-04-08</span><span class="seen">감지 2026-09-03</span></div>
+</li>
+<li class="entry">
+  <div class="entry-top"><span class="no">No.251</span><span class="tag">장학일정</span></div>
+  <a class="title" href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">2026학년도 장학금 일정 안내(학부)</a>
+  <div class="entry-bottom"><span>2025-12-03</span><span class="seen">감지 2026-09-03</span></div>
+</li></ul>
+</main>
+<footer>
+  본 페이지는 공식 고려대학교 사이트가 아니며, <a href="https://www.korea.ac.kr/ko/568/subview.do" target="_blank" rel="noopener">korea.ac.kr</a>의
+  공지 게시판을 비공식으로 감시해 알려주는 도구입니다.
+</footer>
 </body>
 </html>
