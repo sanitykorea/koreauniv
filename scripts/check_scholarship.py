@@ -36,6 +36,14 @@ MAX_STRUCTURED_ROWS = 80
 DATE_RE = re.compile(r"(20\d{2})[.\-/년]\s?(\d{1,2})[.\-/월]\s?(\d{1,2})")
 SKIP_TITLES = {"다음", "이전", "처음", "마지막", "목록", "검색", "more", "list"}
 
+# korea.ac.kr renders this board with a "portalBoard" widget: every title
+# anchor shares the same dummy href="#1" and real navigation happens via
+# onclick="jf_view('<articleId>','<boardId>','<siteId>')" submitting a
+# hidden form. There is no plain GET URL for a single article, so hrefs
+# can't be used to identify or de-dup rows here - the articleId (or the
+# displayed board number as a fallback) has to be used instead.
+ONCLICK_ARTICLE_ID_RE = re.compile(r"jf_view\(\s*'([^']+)'")
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -75,6 +83,7 @@ def pick_title_anchor(el):
 
 
 def rows_to_items(rows, base_url: str):
+    """Generic fallback: only useful when rows carry real, distinct hrefs."""
     out = []
     seen_href = set()
     for row in rows:
@@ -92,8 +101,64 @@ def rows_to_items(rows, base_url: str):
             continue
         seen_href.add(href)
         row_text = row.get_text(" ", strip=True)
-        out.append((href, title, extract_date(row_text)))
+        out.append({"id": href, "href": href, "title": title, "posted_date": extract_date(row_text)})
     return out
+
+
+def parse_korea_portal_board(soup: BeautifulSoup):
+    """Parser tailored to korea.ac.kr's portalBoard widget (table.board-table).
+
+    Each row's real identity is the onclick articleId, not the href (see
+    ONCLICK_ARTICLE_ID_RE above). Returns a list of dicts with a stable
+    "id" plus title/date/board-number, or None if this specific markup
+    isn't present so the caller can fall back to a more generic parser.
+    """
+    table = soup.select_one("table.board-table")
+    if table is None:
+        return None
+    tbody = table.find("tbody") or table
+    rows = tbody.find_all("tr")
+
+    items = []
+    seen_ids = set()
+    for row in rows:
+        title_cell = row.select_one("td.td-title") or row.select_one('td[class*="title"]')
+        if title_cell is None:
+            continue
+        a = title_cell.find("a")
+        if a is None:
+            continue
+        title = a.get_text(strip=True)
+        if len(title) < MIN_TITLE_LEN:
+            continue
+
+        num_cell = row.select_one("td.td-num")
+        board_no = num_cell.get_text(strip=True) if num_cell else None
+
+        m = ONCLICK_ARTICLE_ID_RE.search(a.get("onclick", ""))
+        article_id = m.group(1) if m else None
+
+        item_id = article_id or board_no
+        if not item_id or item_id in seen_ids:
+            continue
+        seen_ids.add(item_id)
+
+        date_cell = row.select_one("td.td-date")
+        raw_date = date_cell.get_text(strip=True) if date_cell else ""
+        posted_date = extract_date(raw_date) or (raw_date or None)
+
+        items.append(
+            {
+                "id": f"korea-568-{item_id}",
+                "title": title,
+                "posted_date": posted_date,
+                "board_no": board_no,
+            }
+        )
+
+    if 3 <= len(items) <= MAX_STRUCTURED_ROWS:
+        return items
+    return None
 
 
 def find_scope(soup: BeautifulSoup):
@@ -127,16 +192,23 @@ def print_diagnostics(html: str) -> None:
 
 
 def parse_structured(html: str, base_url: str):
-    """Best-effort, selector-light board parser.
+    """Board parser with a site-specific fast path and a generic fallback.
 
-    Tries table rows first, then list items, scoped to the main content
-    area when one of the common container selectors matches. Returns None
-    when nothing resembling a notice list is found, so the caller can fall
-    back to whole-page change detection instead of guessing.
+    Tries the korea.ac.kr portalBoard markup first (see
+    parse_korea_portal_board). If that doesn't match - e.g. the board
+    widget changes, or this script gets pointed at a different page -
+    falls back to a selector-light generic table/list parser that relies
+    on real per-row hrefs. Returns None when nothing resembling a notice
+    list is found, so the caller can fall back to whole-page change
+    detection instead of guessing.
     """
     soup = BeautifulSoup(html, "lxml")
-    scope = find_scope(soup)
 
+    portal_items = parse_korea_portal_board(soup)
+    if portal_items is not None:
+        return portal_items
+
+    scope = find_scope(soup)
     for tag in ("tr", "li"):
         rows = scope.find_all(tag)
         rows = [r for r in rows if r.find("a", href=True)]
@@ -161,6 +233,8 @@ def save_state(state: dict) -> None:
 
 def render_index(items: list[dict], mode: str, last_checked: str) -> str:
     def badge(item):
+        if not item.get("is_new"):
+            return ""
         try:
             seen_dt = datetime.fromisoformat(item["first_seen"])
         except ValueError:
@@ -168,11 +242,15 @@ def render_index(items: list[dict], mode: str, last_checked: str) -> str:
         age_h = (datetime.now(timezone.utc) - seen_dt).total_seconds() / 3600
         return ' <span class="new">NEW</span>' if age_h <= NEW_BADGE_HOURS else ""
 
+    def meta_line(it):
+        parts = [p for p in (it.get("posted_date"), f"게시글 번호 {it['board_no']}" if it.get("board_no") else None) if p]
+        parts.append(f"감지일 {it['first_seen'][:10]}")
+        return " · ".join(escape(p) for p in parts)
+
     rows = "\n".join(
-        f'<li class="item"><a href="{escape(it["href"])}" target="_blank" '
+        f'<li class="item"><a href="{escape(it.get("href") or SOURCE_URL)}" target="_blank" '
         f'rel="noopener">{escape(it["title"])}</a>{badge(it)}'
-        f'<div class="meta">{escape(it.get("posted_date") or "")} · 감지일 '
-        f'{escape(it["first_seen"][:10])}</div></li>'
+        f'<div class="meta">{meta_line(it)}</div></li>'
         for it in items
     )
     mode_note = (
@@ -228,10 +306,11 @@ def render_index(items: list[dict], mode: str, last_checked: str) -> str:
 
 def render_feed(items: list[dict], last_checked: str) -> str:
     def entry(it):
+        link = it.get("href") or SOURCE_URL
         return f"""  <item>
     <title>{escape(it["title"])}</title>
-    <link>{escape(it["href"])}</link>
-    <guid isPermaLink="true">{escape(it["href"])}</guid>
+    <link>{escape(link)}</link>
+    <guid isPermaLink="false">{escape(it["id"])}</guid>
     <pubDate>{escape(it["first_seen"])}</pubDate>
   </item>"""
 
@@ -269,21 +348,28 @@ def main() -> int:
     new_titles: list[str] = []
 
     if parsed is not None:
-        for href, title, posted_date in parsed:
-            if href in items_state:
-                items_state[href]["last_seen"] = now
-                if posted_date and not items_state[href].get("posted_date"):
-                    items_state[href]["posted_date"] = posted_date
+        for entry in parsed:
+            item_id = entry["id"]
+            if item_id in items_state:
+                items_state[item_id]["last_seen"] = now
+                if entry.get("posted_date") and not items_state[item_id].get("posted_date"):
+                    items_state[item_id]["posted_date"] = entry["posted_date"]
             else:
-                items_state[href] = {
-                    "href": href,
-                    "title": title,
-                    "posted_date": posted_date,
+                items_state[item_id] = {
+                    "id": item_id,
+                    "href": entry.get("href"),
+                    "board_no": entry.get("board_no"),
+                    "title": entry["title"],
+                    "posted_date": entry.get("posted_date"),
                     "first_seen": now,
                     "last_seen": now,
+                    # Only items discovered after the initial baseline load
+                    # should ever show the NEW badge - otherwise every
+                    # pre-existing notice would look "new" on first deploy.
+                    "is_new": was_initialized,
                 }
                 if was_initialized:
-                    new_titles.append(title)
+                    new_titles.append(entry["title"])
     else:
         digest = hashlib.sha256(
             BeautifulSoup(html, "lxml").get_text(" ", strip=True).encode("utf-8")
@@ -292,9 +378,14 @@ def main() -> int:
             new_titles.append("(전체 페이지 변경 감지 - 구조화 파싱 실패)")
         state["page_hash"] = digest
 
-    all_items = sorted(items_state.values(), key=lambda it: it["first_seen"], reverse=True)
+    def sort_key(it):
+        board_no = it.get("board_no")
+        board_no_num = int(board_no) if board_no and board_no.isdigit() else -1
+        return (it.get("posted_date") or "", board_no_num, it["first_seen"])
+
+    all_items = sorted(items_state.values(), key=sort_key, reverse=True)
     all_items = all_items[:MAX_ITEMS_KEPT]
-    items_state = {it["href"]: it for it in all_items}
+    items_state = {it["id"]: it for it in all_items}
 
     state["items"] = items_state
     state["initialized"] = True
