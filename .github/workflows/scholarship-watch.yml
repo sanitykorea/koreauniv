@@ -9,6 +9,10 @@ on:
         description: "텔레그램 연동 테스트 메시지만 보내고 종료 (공지 확인은 하지 않음)"
         type: boolean
         default: false
+      custom_message:
+        description: "지정하면 이 텍스트(HTML 허용)를 텔레그램으로 보내고 종료 (공지 확인은 하지 않음)"
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -39,6 +43,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TEST_TELEGRAM: ${{ github.event.inputs.test_telegram }}
+          CUSTOM_MESSAGE: ${{ github.event.inputs.custom_message }}
         run: python scripts/check_scholarship.py
 
       - name: Commit updates

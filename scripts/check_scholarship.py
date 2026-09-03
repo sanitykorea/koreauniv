@@ -675,7 +675,8 @@ def process_source(source: dict, was_initialized: bool, state_sources: dict) -> 
 
 
 def main() -> int:
-    if os.environ.get("TEST_TELEGRAM") == "true":
+    custom_message = os.environ.get("CUSTOM_MESSAGE", "").strip()
+    if os.environ.get("TEST_TELEGRAM") == "true" or custom_message:
         token = os.environ.get("TELEGRAM_BOT_TOKEN")
         chat_id = os.environ.get("TELEGRAM_CHAT_ID")
         if not token or not chat_id:
@@ -684,13 +685,12 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
-        _send_telegram_message(
-            token,
-            chat_id,
+        text = custom_message or (
             "✅ <b>고려대 장학금 공지 알리미</b> 연동 테스트 메시지입니다.\n"
-            "이 메시지가 보이면 텔레그램 알림이 정상적으로 설정된 것입니다.",
+            "이 메시지가 보이면 텔레그램 알림이 정상적으로 설정된 것입니다."
         )
-        print("[info] 텔레그램 테스트 메시지를 전송했습니다. 채널을 확인해주세요.")
+        _send_telegram_message(token, chat_id, text)
+        print("[info] 텔레그램 메시지를 전송했습니다. 채널을 확인해주세요.")
         return 0
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
