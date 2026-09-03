@@ -104,6 +104,28 @@ def find_scope(soup: BeautifulSoup):
     return soup
 
 
+def print_diagnostics(html: str) -> None:
+    """Dump enough of the fetched page into the workflow log to redesign the
+    parser without needing direct access to the live site."""
+    soup = BeautifulSoup(html, "lxml")
+    title = soup.title.get_text(strip=True) if soup.title else "(no <title>)"
+    print(f"[debug] page title: {title}")
+    print(f"[debug] html length: {len(html)} chars")
+    for sel in CONTAINER_SELECTORS:
+        print(f"[debug] container selector {sel!r}: {len(soup.select(sel))} match(es)")
+
+    scope = find_scope(soup)
+    scope_desc = getattr(scope, "name", None) or "document-root"
+    print(f"[debug] scope used for search: <{scope_desc}>")
+    for tag in ("table", "tbody", "tr", "ul", "ol", "li", "a"):
+        print(f"[debug] scope count <{tag}>: {len(scope.find_all(tag))}")
+
+    snippet = scope.prettify()
+    print(f"[debug] ---- scope HTML snippet (first 6000 of {len(snippet)} chars) ----")
+    print(snippet[:6000])
+    print("[debug] ---- end snippet ----")
+
+
 def parse_structured(html: str, base_url: str):
     """Best-effort, selector-light board parser.
 
@@ -240,6 +262,8 @@ def main() -> int:
 
     parsed = parse_structured(html, SOURCE_URL)
     mode = "structured" if parsed is not None else "fallback-hash"
+    if parsed is None:
+        print_diagnostics(html)
 
     items_state: dict = state.get("items", {})
     new_titles: list[str] = []
