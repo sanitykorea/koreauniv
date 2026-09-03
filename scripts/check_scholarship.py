@@ -24,6 +24,26 @@ SOURCE_URL = "https://www.korea.ac.kr/ko/568/subview.do"
 SOURCE_NAME = "고려대학교 장학금 공지"
 SITE_BASE_URL = "https://sanitykorea.github.io/koreauniv"
 
+# Boards this watcher polls. Each gets its own id namespace (via "key", used
+# as an id prefix so two boards can never collide on the same articleId) and
+# an optional "keyword": when set, only titles containing that substring are
+# kept - everything else on that board is fetched and parsed but discarded.
+SOURCES = [
+    {
+        "key": "568",
+        "name": "장학금 공지",
+        "url": SOURCE_URL,
+        "keyword": None,
+    },
+    {
+        "key": "566",
+        "name": "근로장학",
+        "url": "https://www.korea.ac.kr/ko/566/subview.do",
+        "keyword": "근로장학",
+    },
+]
+PRIMARY_SOURCE_NAME = SOURCES[0]["name"]
+
 ROOT = Path(__file__).resolve().parent.parent
 DATA_FILE = ROOT / "data" / "seen.json"
 SITE_DIR = ROOT / "docs"
@@ -78,7 +98,7 @@ def fetch_html(url: str, page: int | None = None) -> str:
     return resp.text
 
 
-def fetch_additional_pages(base_url: str, already_seen_ids: set[str]) -> list[dict]:
+def fetch_additional_pages(base_url: str, already_seen_ids: set[str], id_prefix: str) -> list[dict]:
     """Fetch a few more board pages beyond page 1 so a run doesn't miss
     notices when more than one page's worth appear between checks.
 
@@ -95,7 +115,7 @@ def fetch_additional_pages(base_url: str, already_seen_ids: set[str]) -> list[di
         except requests.RequestException as exc:
             print(f"[warn] page {page} fetch failed, stopping pagination: {exc}")
             break
-        page_items = extract_portal_board_rows(BeautifulSoup(page_html, "lxml"))
+        page_items = extract_portal_board_rows(BeautifulSoup(page_html, "lxml"), id_prefix)
         if not page_items:
             break
         new_on_page = [it for it in page_items if it["id"] not in seen]
@@ -145,13 +165,15 @@ def rows_to_items(rows, base_url: str):
     return out
 
 
-def extract_portal_board_rows(soup: BeautifulSoup) -> list[dict] | None:
+def extract_portal_board_rows(soup: BeautifulSoup, id_prefix: str) -> list[dict] | None:
     """Row extraction for korea.ac.kr's portalBoard widget (table.board-table).
 
     Each row's real identity is the onclick articleId, not the href (see
-    ONCLICK_ARTICLE_ID_RE above). Returns a list (possibly empty, e.g. past
-    the last page) of dicts with a stable "id" plus title/date/board-number,
-    or None if this page has no such table at all.
+    ONCLICK_ARTICLE_ID_RE above). id_prefix (the board's SOURCES "key")
+    namespaces ids so the same articleId format on two different boards
+    can never collide. Returns a list (possibly empty, e.g. past the last
+    page) of dicts with a stable "id" plus title/date/board-number, or
+    None if this page has no such table at all.
     """
     table = soup.select_one("table.board-table")
     if table is None:
@@ -189,7 +211,7 @@ def extract_portal_board_rows(soup: BeautifulSoup) -> list[dict] | None:
 
         items.append(
             {
-                "id": f"korea-568-{item_id}",
+                "id": f"korea-{id_prefix}-{item_id}",
                 "title": title,
                 "posted_date": posted_date,
                 "board_no": board_no,
@@ -199,13 +221,13 @@ def extract_portal_board_rows(soup: BeautifulSoup) -> list[dict] | None:
     return items
 
 
-def parse_korea_portal_board(soup: BeautifulSoup):
+def parse_korea_portal_board(soup: BeautifulSoup, id_prefix: str):
     """Wraps extract_portal_board_rows with a sanity gate on row count, used
     to decide whether this page even looks like the expected notice board
     (see parse_structured). Not used for paging past page 1 - there a low
     or zero row count is an expected end-of-list signal, not a parse failure.
     """
-    items = extract_portal_board_rows(soup)
+    items = extract_portal_board_rows(soup, id_prefix)
     if items is not None and 3 <= len(items) <= MAX_STRUCTURED_ROWS:
         return items
     return None
@@ -241,7 +263,7 @@ def print_diagnostics(html: str) -> None:
     print("[debug] ---- end snippet ----")
 
 
-def parse_structured(html: str, base_url: str):
+def parse_structured(html: str, base_url: str, id_prefix: str):
     """Board parser with a site-specific fast path and a generic fallback.
 
     Tries the korea.ac.kr portalBoard markup first (see
@@ -254,7 +276,7 @@ def parse_structured(html: str, base_url: str):
     """
     soup = BeautifulSoup(html, "lxml")
 
-    portal_items = parse_korea_portal_board(soup)
+    portal_items = parse_korea_portal_board(soup, id_prefix)
     if portal_items is not None:
         return portal_items
 
@@ -272,8 +294,11 @@ def parse_structured(html: str, base_url: str):
 
 def load_state() -> dict:
     if DATA_FILE.exists():
-        return json.loads(DATA_FILE.read_text(encoding="utf-8"))
-    return {"initialized": False, "page_hash": None, "items": {}}
+        state = json.loads(DATA_FILE.read_text(encoding="utf-8"))
+        state.setdefault("sources", {})
+        state.pop("page_hash", None)  # migrated to per-source state["sources"][key]["page_hash"]
+        return state
+    return {"initialized": False, "items": {}, "sources": {}}
 
 
 def save_state(state: dict) -> None:
@@ -303,12 +328,16 @@ def render_index(items: list[dict], mode: str, last_checked: str) -> str:
 
     def render_entry(it):
         category, display_title = split_category(it["title"])
+        source = it.get("source")
+        if not category and source and source != PRIMARY_SOURCE_NAME:
+            category = source
         no_html = f'<span class="no">No.{escape(it["board_no"])}</span>' if it.get("board_no") else ""
         tag_html = f'<span class="tag">{escape(category)}</span>' if category else ""
         date_html = f'<span>{escape(it["posted_date"])}</span>' if it.get("posted_date") else ""
+        link = it.get("href") or it.get("source_url") or SOURCE_URL
         return f"""<li class="entry">
   <div class="entry-top">{no_html}{tag_html}{new_badge(it)}</div>
-  <a class="title" href="{escape(it.get("href") or SOURCE_URL)}" target="_blank" rel="noopener">{escape(display_title)}</a>
+  <a class="title" href="{escape(link)}" target="_blank" rel="noopener">{escape(display_title)}</a>
   <div class="entry-bottom">{date_html}<span class="seen">감지 {escape(it["first_seen"][:10])}</span></div>
 </li>"""
 
@@ -324,6 +353,10 @@ def render_index(items: list[dict], mode: str, last_checked: str) -> str:
     )
     count_label = f"{len(items)}건 추적 중" if items else "아직 추적 중인 공지가 없습니다"
     body = f"<ul class=\"ledger\">{rows}</ul>" if items else '<p class="empty">첫 확인을 기다리는 중입니다.</p>'
+    source_links = "".join(
+        f'<span class="sep">·</span><a href="{escape(s["url"])}" target="_blank" rel="noopener">{escape(s["name"])} 게시판</a>'
+        for s in SOURCES
+    )
     return f"""<!doctype html>
 <html lang="ko">
 <head>
@@ -486,10 +519,10 @@ def render_index(items: list[dict], mode: str, last_checked: str) -> str:
 <header>
   <p class="eyebrow">Korea University · 학생지원팀 공지</p>
   <h1>{SOURCE_NAME} 알리미</h1>
-  <p class="desc">장학금 공지사항 게시판을 주기적으로 확인해서 새 글이 올라오면
-  이 페이지와 RSS 피드가 자동으로 갱신됩니다.</p>
+  <p class="desc">장학금 공지사항 게시판과 '근로장학' 키워드가 포함된 일반 공지를 주기적으로
+  확인해서 새 글이 올라오면 이 페이지와 RSS 피드가 자동으로 갱신됩니다.</p>
   <p class="quicklinks">
-    <a href="feed.xml">RSS 구독</a><span class="sep">·</span><a href="{SOURCE_URL}" target="_blank" rel="noopener">원본 게시판</a>
+    <a href="feed.xml">RSS 구독</a>{source_links}
   </p>
 </header>
 <main>
@@ -501,8 +534,8 @@ def render_index(items: list[dict], mode: str, last_checked: str) -> str:
   {body}
 </main>
 <footer>
-  본 페이지는 공식 고려대학교 사이트가 아니며, <a href="{SOURCE_URL}" target="_blank" rel="noopener">korea.ac.kr</a>의
-  공지 게시판을 비공식으로 감시해 알려주는 도구입니다.
+  본 페이지는 공식 고려대학교 사이트가 아니며, korea.ac.kr의 공지 게시판을 비공식으로
+  감시해 알려주는 도구입니다.
 </footer>
 </body>
 </html>
@@ -511,7 +544,7 @@ def render_index(items: list[dict], mode: str, last_checked: str) -> str:
 
 def render_feed(items: list[dict], last_checked: str) -> str:
     def entry(it):
-        link = it.get("href") or SOURCE_URL
+        link = it.get("href") or it.get("source_url") or SOURCE_URL
         return f"""  <item>
     <title>{escape(it["title"])}</title>
     <link>{escape(link)}</link>
@@ -525,7 +558,7 @@ def render_feed(items: list[dict], last_checked: str) -> str:
 <channel>
   <title>{SOURCE_NAME} 알리미</title>
   <link>{SITE_BASE_URL}/</link>
-  <description>고려대학교 장학금 공지사항 새 글 알림</description>
+  <description>고려대학교 장학금 공지 + '근로장학' 키워드 공지 새 글 알림</description>
   <lastBuildDate>{escape(last_checked)}</lastBuildDate>
 {items_xml}
 </channel>
@@ -552,6 +585,8 @@ def _send_telegram_message(token: str, chat_id: str, text: str) -> None:
 
 def _telegram_entry_line(it: dict) -> str:
     category, title = split_category(it["title"])
+    if not category and it.get("source") and it["source"] != PRIMARY_SOURCE_NAME:
+        category = it["source"]
     prefix = f"[{escape(category)}] " if category else ""
     return f"• {prefix}{escape(title)}"
 
@@ -574,47 +609,89 @@ def notify_telegram(new_items: list[dict]) -> None:
         lines = [f"🎓 <b>새 장학금 공지 {len(new_items)}건</b>", ""]
         lines.extend(_telegram_entry_line(it) for it in new_items)
         lines.append("")
-        lines.append(f'<a href="{escape(SOURCE_URL)}">전체 공지 게시판 보기</a>')
+        overview_link = new_items[0].get("source_url") or SOURCE_URL
+        lines.append(f'<a href="{escape(overview_link)}">전체 공지 게시판 보기</a>')
         _send_telegram_message(token, chat_id, "\n".join(lines))
         return
 
     for it in new_items:
         category, title = split_category(it["title"])
+        if not category and it.get("source") and it["source"] != PRIMARY_SOURCE_NAME:
+            category = it["source"]
         lines = ["🎓 <b>새 장학금 공지</b>", ""]
         lines.append(f"[{escape(category)}] {escape(title)}" if category else escape(title))
         meta = [p for p in (it.get("posted_date"), f"No.{it['board_no']}" if it.get("board_no") else None) if p]
         if meta:
             lines.append(" · ".join(escape(p) for p in meta))
-        lines.append(f'<a href="{escape(it.get("href") or SOURCE_URL)}">공지 확인하기</a>')
+        link = it.get("href") or it.get("source_url") or SOURCE_URL
+        lines.append(f'<a href="{escape(link)}">공지 확인하기</a>')
         _send_telegram_message(token, chat_id, "\n".join(lines))
+
+
+def process_source(source: dict, was_initialized: bool, state_sources: dict) -> tuple[list[dict], bool]:
+    """Fetch, paginate, and (if configured) keyword-filter one board.
+
+    Returns (items, structure_recognized). items is [] when the fetch
+    failed or the board's structure wasn't recognized on this run; the
+    latter also updates state_sources[source["key"]] for hash-diff
+    fallback tracking and prints diagnostics to the log.
+    """
+    try:
+        html = fetch_html(source["url"])
+    except requests.RequestException as exc:
+        print(f"[error] [{source['name']}] 가져오기 실패: {exc}", file=sys.stderr)
+        return [], True  # not a structure problem, just skip this run
+
+    parsed = parse_structured(html, source["url"], source["key"])
+    src_state = state_sources.setdefault(source["key"], {"page_hash": None})
+
+    if parsed is None:
+        print(f"[warn] [{source['name']}] 목록 구조를 인식하지 못했습니다.")
+        print_diagnostics(html)
+        digest = hashlib.sha256(
+            BeautifulSoup(html, "lxml").get_text(" ", strip=True).encode("utf-8")
+        ).hexdigest()
+        if was_initialized and src_state.get("page_hash") and src_state["page_hash"] != digest:
+            src_state["changed"] = True
+        src_state["page_hash"] = digest
+        return [], False
+
+    if PAGES_PER_RUN > 1:
+        extra = fetch_additional_pages(source["url"], {it["id"] for it in parsed}, source["key"])
+        if extra:
+            print(f"[info] [{source['name']}] 다음 페이지에서 {len(extra)}건을 추가로 확인했습니다.")
+        parsed = parsed + extra
+
+    if source.get("keyword"):
+        before = len(parsed)
+        parsed = [it for it in parsed if source["keyword"] in it["title"]]
+        print(f"[info] [{source['name']}] {before}건 중 '{source['keyword']}' 포함 {len(parsed)}건 선별")
+
+    for it in parsed:
+        it["source"] = source["name"]
+        it["source_url"] = source["url"]
+
+    return parsed, True
 
 
 def main() -> int:
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     state = load_state()
     was_initialized = state.get("initialized", False)
-
-    try:
-        html = fetch_html(SOURCE_URL)
-    except requests.RequestException as exc:
-        print(f"[error] failed to fetch source: {exc}", file=sys.stderr)
-        return 1
-
-    parsed = parse_structured(html, SOURCE_URL)
-    mode = "structured" if parsed is not None else "fallback-hash"
-    if parsed is None:
-        print_diagnostics(html)
-    elif PAGES_PER_RUN > 1:
-        extra = fetch_additional_pages(SOURCE_URL, {it["id"] for it in parsed})
-        if extra:
-            print(f"[info] 다음 페이지에서 {len(extra)}건을 추가로 확인했습니다.")
-        parsed = parsed + extra
+    state_sources = state["sources"]
 
     items_state: dict = state.get("items", {})
     new_items: list[dict] = []
-    fallback_change_detected = False
+    any_structured = False
+    any_recognized = False
 
-    if parsed is not None:
+    for source in SOURCES:
+        parsed, recognized = process_source(source, was_initialized, state_sources)
+        any_recognized = any_recognized or recognized
+        if not parsed:
+            continue
+        any_structured = True
+
         for entry in parsed:
             item_id = entry["id"]
             if item_id in items_state:
@@ -628,6 +705,8 @@ def main() -> int:
                     "board_no": entry.get("board_no"),
                     "title": entry["title"],
                     "posted_date": entry.get("posted_date"),
+                    "source": entry.get("source"),
+                    "source_url": entry.get("source_url"),
                     "first_seen": now,
                     "last_seen": now,
                     # Only items discovered after the initial baseline load
@@ -638,13 +717,13 @@ def main() -> int:
                 items_state[item_id] = new_item
                 if was_initialized:
                     new_items.append(new_item)
-    else:
-        digest = hashlib.sha256(
-            BeautifulSoup(html, "lxml").get_text(" ", strip=True).encode("utf-8")
-        ).hexdigest()
-        if was_initialized and state.get("page_hash") and state["page_hash"] != digest:
-            fallback_change_detected = True
-        state["page_hash"] = digest
+
+    if not any_recognized:
+        print("[error] 모든 게시판을 가져오지 못했습니다.", file=sys.stderr)
+        return 1
+
+    mode = "structured" if any_structured else "fallback-hash"
+    fallback_sources = [s["name"] for s in SOURCES if state_sources.get(s["key"], {}).pop("changed", False)]
 
     def sort_key(it):
         board_no = it.get("board_no")
@@ -656,6 +735,7 @@ def main() -> int:
     items_state = {it["id"]: it for it in all_items}
 
     state["items"] = items_state
+    state["sources"] = state_sources
     state["initialized"] = True
     state["last_checked"] = now
     state["mode"] = mode
@@ -668,22 +748,23 @@ def main() -> int:
     if new_items:
         print(f"[info] {len(new_items)}건의 새 공지를 감지했습니다:")
         for it in new_items:
-            print(f"  - {it['title']}")
+            print(f"  - [{it.get('source')}] {it['title']}")
         notify_telegram(new_items)
-    elif fallback_change_detected:
-        print("[info] 전체 페이지 변경 감지 - 구조화 파싱 실패")
+    if fallback_sources:
+        names = ", ".join(fallback_sources)
+        print(f"[info] 전체 페이지 변경 감지(구조화 파싱 실패): {names}")
         token, chat_id = os.environ.get("TELEGRAM_BOT_TOKEN"), os.environ.get("TELEGRAM_CHAT_ID")
         if token and chat_id:
             _send_telegram_message(
                 token,
                 chat_id,
-                "⚠️ 장학금 공지 게시판에 변화가 감지됐지만 자동 인식에 실패했습니다.\n"
-                f'<a href="{escape(SOURCE_URL)}">직접 확인하기</a>',
+                f"⚠️ {escape(names)} 게시판에 변화가 감지됐지만 자동 인식에 실패했습니다.\n직접 확인해주세요.",
             )
-    elif was_initialized:
-        print("[info] 새 공지가 없습니다.")
-    else:
-        print(f"[info] 초기 데이터를 저장했습니다 ({mode} 모드, {len(all_items)}건).")
+    if not new_items and not fallback_sources:
+        if was_initialized:
+            print("[info] 새 공지가 없습니다.")
+        else:
+            print(f"[info] 초기 데이터를 저장했습니다 ({mode} 모드, {len(all_items)}건).")
 
     return 0
 
