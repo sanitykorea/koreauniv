@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import sys
 from datetime import datetime, timezone
@@ -35,6 +36,7 @@ MIN_TITLE_LEN = 4
 MAX_STRUCTURED_ROWS = 80
 PAGES_PER_RUN = 3
 PAGE_QUERY_PARAM = "page"
+TELEGRAM_GROUP_THRESHOLD = 8
 DATE_RE = re.compile(r"(20\d{2})[.\-/년]\s?(\d{1,2})[.\-/월]\s?(\d{1,2})")
 SKIP_TITLES = {"다음", "이전", "처음", "마지막", "목록", "검색", "more", "list"}
 
@@ -531,6 +533,62 @@ def render_feed(items: list[dict], last_checked: str) -> str:
 """
 
 
+def _send_telegram_message(token: str, chat_id: str, text: str) -> None:
+    try:
+        resp = requests.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            data={
+                "chat_id": chat_id,
+                "text": text,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": "true",
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        print(f"[warn] Telegram 알림 전송 실패: {exc}", file=sys.stderr)
+
+
+def _telegram_entry_line(it: dict) -> str:
+    category, title = split_category(it["title"])
+    prefix = f"[{escape(category)}] " if category else ""
+    return f"• {prefix}{escape(title)}"
+
+
+def notify_telegram(new_items: list[dict]) -> None:
+    """Post newly-detected notices to a Telegram chat/channel, if configured.
+
+    Reads TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID from the environment (set
+    as GitHub Actions secrets) - silently does nothing when either is
+    missing, so this stays fully optional. A single notification failure
+    is logged, never raised, since it must not block state/site updates
+    that already happened before this runs.
+    """
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+    if not token or not chat_id or not new_items:
+        return
+
+    if len(new_items) > TELEGRAM_GROUP_THRESHOLD:
+        lines = [f"🎓 <b>새 장학금 공지 {len(new_items)}건</b>", ""]
+        lines.extend(_telegram_entry_line(it) for it in new_items)
+        lines.append("")
+        lines.append(f'<a href="{escape(SOURCE_URL)}">전체 공지 게시판 보기</a>')
+        _send_telegram_message(token, chat_id, "\n".join(lines))
+        return
+
+    for it in new_items:
+        category, title = split_category(it["title"])
+        lines = ["🎓 <b>새 장학금 공지</b>", ""]
+        lines.append(f"[{escape(category)}] {escape(title)}" if category else escape(title))
+        meta = [p for p in (it.get("posted_date"), f"No.{it['board_no']}" if it.get("board_no") else None) if p]
+        if meta:
+            lines.append(" · ".join(escape(p) for p in meta))
+        lines.append(f'<a href="{escape(it.get("href") or SOURCE_URL)}">공지 확인하기</a>')
+        _send_telegram_message(token, chat_id, "\n".join(lines))
+
+
 def main() -> int:
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     state = load_state()
@@ -553,7 +611,8 @@ def main() -> int:
         parsed = parsed + extra
 
     items_state: dict = state.get("items", {})
-    new_titles: list[str] = []
+    new_items: list[dict] = []
+    fallback_change_detected = False
 
     if parsed is not None:
         for entry in parsed:
@@ -563,7 +622,7 @@ def main() -> int:
                 if entry.get("posted_date") and not items_state[item_id].get("posted_date"):
                     items_state[item_id]["posted_date"] = entry["posted_date"]
             else:
-                items_state[item_id] = {
+                new_item = {
                     "id": item_id,
                     "href": entry.get("href"),
                     "board_no": entry.get("board_no"),
@@ -576,14 +635,15 @@ def main() -> int:
                     # pre-existing notice would look "new" on first deploy.
                     "is_new": was_initialized,
                 }
+                items_state[item_id] = new_item
                 if was_initialized:
-                    new_titles.append(entry["title"])
+                    new_items.append(new_item)
     else:
         digest = hashlib.sha256(
             BeautifulSoup(html, "lxml").get_text(" ", strip=True).encode("utf-8")
         ).hexdigest()
         if was_initialized and state.get("page_hash") and state["page_hash"] != digest:
-            new_titles.append("(전체 페이지 변경 감지 - 구조화 파싱 실패)")
+            fallback_change_detected = True
         state["page_hash"] = digest
 
     def sort_key(it):
@@ -605,10 +665,21 @@ def main() -> int:
     INDEX_FILE.write_text(render_index(all_items, mode, now), encoding="utf-8")
     FEED_FILE.write_text(render_feed(all_items[:50], now), encoding="utf-8")
 
-    if new_titles:
-        print(f"[info] {len(new_titles)}건의 새 공지를 감지했습니다:")
-        for t in new_titles:
-            print(f"  - {t}")
+    if new_items:
+        print(f"[info] {len(new_items)}건의 새 공지를 감지했습니다:")
+        for it in new_items:
+            print(f"  - {it['title']}")
+        notify_telegram(new_items)
+    elif fallback_change_detected:
+        print("[info] 전체 페이지 변경 감지 - 구조화 파싱 실패")
+        token, chat_id = os.environ.get("TELEGRAM_BOT_TOKEN"), os.environ.get("TELEGRAM_CHAT_ID")
+        if token and chat_id:
+            _send_telegram_message(
+                token,
+                chat_id,
+                "⚠️ 장학금 공지 게시판에 변화가 감지됐지만 자동 인식에 실패했습니다.\n"
+                f'<a href="{escape(SOURCE_URL)}">직접 확인하기</a>',
+            )
     elif was_initialized:
         print("[info] 새 공지가 없습니다.")
     else:
