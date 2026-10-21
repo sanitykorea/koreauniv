@@ -1,6 +1,42 @@
 {
   "initialized": true,
   "items": {
+    "korea-568-000100000000003884": {
+      "id": "korea-568-000100000000003884",
+      "href": null,
+      "board_no": "248",
+      "title": "[교외-11/20]2026년 2학기 안산시 대학생 본인부담 등록금 반값지원 안내(재단지원)",
+      "posted_date": "2026-10-21",
+      "source": "장학금 공지",
+      "source_url": "https://www.korea.ac.kr/ko/568/subview.do",
+      "first_seen": "2026-10-21T05:05:51+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
+      "is_new": true
+    },
+    "korea-568-000100000000003883": {
+      "id": "korea-568-000100000000003883",
+      "href": null,
+      "board_no": "247",
+      "title": "[교외-11/2]2027학년도 해동과학문화재단 해동장학생 모집 안내(학교지원)",
+      "posted_date": "2026-10-21",
+      "source": "장학금 공지",
+      "source_url": "https://www.korea.ac.kr/ko/568/subview.do",
+      "first_seen": "2026-10-21T05:05:51+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
+      "is_new": true
+    },
+    "korea-568-000100000000003882": {
+      "id": "korea-568-000100000000003882",
+      "href": null,
+      "board_no": "246",
+      "title": "[교외-11/13]2027학년도 엔지니어링인재육성재단 제2기 장학생 선발 안내(재단지원)",
+      "posted_date": "2026-10-21",
+      "source": "장학금 공지",
+      "source_url": "https://www.korea.ac.kr/ko/568/subview.do",
+      "first_seen": "2026-10-21T05:05:51+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
+      "is_new": true
+    },
     "korea-566-000060000000061526": {
       "id": "korea-566-000060000000061526",
       "href": null,
@@ -10,7 +46,7 @@
       "source": "근로장학",
       "source_url": "https://www.korea.ac.kr/ko/566/subview.do",
       "first_seen": "2026-10-20T02:58:16+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": true
     },
     "korea-568-000100000000003881": {
@@ -22,7 +58,7 @@
       "source": "장학금 공지",
       "source_url": "https://www.korea.ac.kr/ko/568/subview.do",
       "first_seen": "2026-10-16T09:10:05+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": true
     },
     "korea-568-000100000000003880": {
@@ -34,7 +70,7 @@
       "source": "장학금 공지",
       "source_url": "https://www.korea.ac.kr/ko/568/subview.do",
       "first_seen": "2026-10-16T09:10:05+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": true
     },
     "korea-568-000100000000003879": {
@@ -46,7 +82,7 @@
       "source": "장학금 공지",
       "source_url": "https://www.korea.ac.kr/ko/568/subview.do",
       "first_seen": "2026-10-16T09:10:05+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": true
     },
     "korea-568-000100000000003878": {
@@ -58,7 +94,7 @@
       "source": "장학금 공지",
       "source_url": "https://www.korea.ac.kr/ko/568/subview.do",
       "first_seen": "2026-10-16T04:12:17+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": true
     },
     "korea-568-000100000000003876": {
@@ -70,7 +106,7 @@
       "source": "장학금 공지",
       "source_url": "https://www.korea.ac.kr/ko/568/subview.do",
       "first_seen": "2026-10-14T02:02:37+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": true
     },
     "korea-568-000100000000003874": {
@@ -82,7 +118,7 @@
       "source": "장학금 공지",
       "source_url": "https://www.korea.ac.kr/ko/568/subview.do",
       "first_seen": "2026-10-13T04:57:57+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": true
     },
     "korea-566-000060000000061011": {
@@ -94,7 +130,7 @@
       "source": "근로장학",
       "source_url": "https://www.korea.ac.kr/ko/566/subview.do",
       "first_seen": "2026-10-08T09:15:42+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": true
     },
     "korea-568-000100000000003872": {
@@ -106,7 +142,7 @@
       "source": "장학금 공지",
       "source_url": "https://www.korea.ac.kr/ko/568/subview.do",
       "first_seen": "2026-10-08T09:15:42+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": true
     },
     "korea-568-000100000000003871": {
@@ -118,7 +154,7 @@
       "source": "장학금 공지",
       "source_url": "https://www.korea.ac.kr/ko/568/subview.do",
       "first_seen": "2026-10-06T07:04:38+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": true
     },
     "korea-568-000100000000003870": {
@@ -130,7 +166,7 @@
       "source": "장학금 공지",
       "source_url": "https://www.korea.ac.kr/ko/568/subview.do",
       "first_seen": "2026-10-06T07:04:38+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": true
     },
     "korea-568-000100000000003869": {
@@ -142,7 +178,7 @@
       "source": "장학금 공지",
       "source_url": "https://www.korea.ac.kr/ko/568/subview.do",
       "first_seen": "2026-10-06T07:04:38+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": true
     },
     "korea-568-000100000000003866": {
@@ -154,7 +190,7 @@
       "source": "장학금 공지",
       "source_url": "https://www.korea.ac.kr/ko/568/subview.do",
       "first_seen": "2026-10-06T00:31:43+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": true
     },
     "korea-568-000100000000003867": {
@@ -166,7 +202,7 @@
       "source": "장학금 공지",
       "source_url": "https://www.korea.ac.kr/ko/568/subview.do",
       "first_seen": "2026-10-06T00:31:43+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": true
     },
     "korea-568-000100000000003865": {
@@ -190,7 +226,7 @@
       "source": "장학금 공지",
       "source_url": "https://www.korea.ac.kr/ko/568/subview.do",
       "first_seen": "2026-10-01T06:16:47+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": true
     },
     "korea-568-000100000000003863": {
@@ -202,7 +238,7 @@
       "source": "장학금 공지",
       "source_url": "https://www.korea.ac.kr/ko/568/subview.do",
       "first_seen": "2026-10-01T06:16:47+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": true
     },
     "korea-568-000100000000003857": {
@@ -214,7 +250,7 @@
       "source": "장학금 공지",
       "source_url": "https://www.korea.ac.kr/ko/568/subview.do",
       "first_seen": "2026-09-30T02:13:54+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": true
     },
     "korea-568-000100000000003856": {
@@ -226,7 +262,7 @@
       "source": "장학금 공지",
       "source_url": "https://www.korea.ac.kr/ko/568/subview.do",
       "first_seen": "2026-09-30T02:13:54+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": true
     },
     "korea-568-000100000000003862": {
@@ -238,7 +274,7 @@
       "source": "장학금 공지",
       "source_url": "https://www.korea.ac.kr/ko/568/subview.do",
       "first_seen": "2026-09-30T15:30:58+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": true
     },
     "korea-568-000100000000003682": {
@@ -250,7 +286,7 @@
       "source": "장학금 공지",
       "source_url": "https://www.korea.ac.kr/ko/568/subview.do",
       "first_seen": "2026-09-30T08:48:09+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": true
     },
     "korea-568-000100000000003860": {
@@ -262,7 +298,7 @@
       "source": "장학금 공지",
       "source_url": "https://www.korea.ac.kr/ko/568/subview.do",
       "first_seen": "2026-09-30T02:13:54+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": true
     },
     "korea-568-000100000000003861": {
@@ -274,7 +310,7 @@
       "source": "장학금 공지",
       "source_url": "https://www.korea.ac.kr/ko/568/subview.do",
       "first_seen": "2026-09-30T08:48:09+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": true
     },
     "korea-568-000100000000003858": {
@@ -414,7 +450,7 @@
       "title": "[기금/교외] 2026학년도 2학기 장학 추천 인재 POOL 등록 신청 안내 (학부)",
       "posted_date": "2026-09-02",
       "first_seen": "2026-09-03T03:22:12+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": false
     },
     "korea-568-000100000000003844": {
@@ -516,7 +552,7 @@
       "title": "[국가근로] 2026학년도 2학기 국가근로장학 희망근로지 신청(2차) 및 신청방법 변경 안내 (서울캠퍼스)",
       "posted_date": "2026-08-28",
       "first_seen": "2026-09-03T03:22:12+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": false
     },
     "korea-568-000100000000003342": {
@@ -526,7 +562,7 @@
       "title": "[국가근로] 2026학년도 2학기 국가근로 선발결과 조회 방법 및 사전교육자료 안내",
       "posted_date": "2026-08-28",
       "first_seen": "2026-09-03T03:22:12+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": false
     },
     "korea-568-000100000000003830": {
@@ -662,7 +698,7 @@
       "title": "[국가근로] 2026학년도 근로중지 자진신고 및 부정근로 예방 자료 안내 (부정근로시 참여제한)",
       "posted_date": "2026-08-06",
       "first_seen": "2026-09-03T03:22:12+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": false
     },
     "korea-568-000100000000003733": {
@@ -722,7 +758,7 @@
       "title": "[교외] 외부장학재단 장학생 지원시 총장 추천서 직인 요청방법 안내",
       "posted_date": "2026-07-13",
       "first_seen": "2026-09-03T03:22:12+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": false
     },
     "korea-568-000100000000003708": {
@@ -732,7 +768,7 @@
       "title": "[공통] 장학금 포기 신청서 (양식)",
       "posted_date": "2026-04-08",
       "first_seen": "2026-09-03T03:22:12+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": false
     },
     "korea-568-000100000000003570": {
@@ -742,11 +778,11 @@
       "title": "[장학일정] 2026학년도 장학금 일정 안내(학부)",
       "posted_date": "2025-12-03",
       "first_seen": "2026-09-03T03:22:12+00:00",
-      "last_seen": "2026-10-21T00:19:03+00:00",
+      "last_seen": "2026-10-21T05:05:51+00:00",
       "is_new": false
     }
   },
-  "last_checked": "2026-10-21T00:19:03+00:00",
+  "last_checked": "2026-10-21T05:05:51+00:00",
   "mode": "structured",
   "sources": {
     "568": {
